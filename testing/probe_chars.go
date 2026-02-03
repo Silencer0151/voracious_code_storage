@@ -29,13 +29,9 @@ func main() {
 	var illegal []string
 
 	for _, char := range specialChars {
-		// Construct a filename using the special char
-		// We wrap it in standard chars to ensure the char itself is the issue
-		// e.g. /test_@_file
 		filename := fmt.Sprintf("/test_%c_file", char)
 
-		// If char is '/', valid path structure changes, handle separately or just ignore for now
-		// (We know / is allowed as a separator)
+		// Skip slash as it is a directory separator
 		if char == '/' {
 			allowed = append(allowed, "/")
 			continue
@@ -44,27 +40,36 @@ func main() {
 		fmt.Printf("Testing '%c' ... ", char)
 
 		// Send PUT command
-		// PUT /test_X_file 1\nA
 		payload := fmt.Sprintf("PUT %s 1\nA", filename)
 		fmt.Fprintf(conn, "%s", payload)
 
-		// Read Response
-		resp, _ := readLine(reader)
+		// Read Response (Expected: OK... or ERR...)
+		resp, err := readLine(reader)
+		if err != nil {
+			fmt.Println("Connection Error:", err)
+			break
+		}
 
 		if strings.HasPrefix(resp, "OK") {
 			fmt.Println("ALLOWED")
 			allowed = append(allowed, string(char))
-			// Consume the 'READY' that follows OK
+			// Success always sends READY, consume it blocking
 			readLine(reader)
 		} else {
 			fmt.Println("ILLEGAL")
 			illegal = append(illegal, string(char))
-			// Consume the 'READY' that follows ERR (if server sends it on err)
-			// Based on previous logs, server sends READY after ERR too.
-			readLine(reader)
+
+			// ERROR handling: The server might NOT send READY.
+			// Try to read it with a very short timeout.
+			conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+			line, err := readLine(reader)
+			conn.SetReadDeadline(time.Time{}) // Reset to no timeout
+
+			if err == nil && line != "READY" {
+				// We read something that wasn't READY? Odd, but we consumed it.
+			}
 		}
 
-		// Small sleep to be polite to the shared server
 		time.Sleep(50 * time.Millisecond)
 	}
 
@@ -73,16 +78,17 @@ func main() {
 	fmt.Printf("ILLEGAL: %s\n", strings.Join(illegal, ""))
 
 	// Print regex suggestion
-	escapedAllowed := ""
+	regexStr := "^[a-zA-Z0-9"
 	for _, c := range allowed {
 		if c == "-" || c == "." || c == "/" {
-			// these often need escaping or special placement in regex
-			escapedAllowed += c
+			regexStr += c
 		} else {
-			escapedAllowed += "\\" + c
+			regexStr += "\\" + c
 		}
 	}
-	fmt.Printf("Suggested Regex Safe Chars: a-zA-Z0-9%s\n", strings.Join(allowed, ""))
+	regexStr += "]+$"
+
+	fmt.Printf("Suggested Regex: %s\n", regexStr)
 }
 
 func readLine(r *bufio.Reader) (string, error) {
