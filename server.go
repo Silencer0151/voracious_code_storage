@@ -183,6 +183,10 @@ func handleConnection(conn net.Conn) {
 			}
 
 			filename := parts[1]
+			if !strings.HasPrefix(filename, "/") || !validPath.MatchString(filename) {
+				conn.Write([]byte("ERR illegal file name\nREADY\n"))
+				continue
+			}
 			storeKey := strings.ToLower(filename)
 
 			// Read-Lock the storage to find the file
@@ -254,6 +258,12 @@ func handleConnection(conn net.Conn) {
 			// Request: LIST <dir>
 			if len(parts) != 2 {
 				conn.Write([]byte("ERR usage: LIST dir\nREADY\n"))
+				continue
+			}
+
+			rawDir := parts[1]
+			if !strings.HasPrefix(rawDir, "/") || !validPath.MatchString(rawDir) {
+				conn.Write([]byte("ERR illegal dir name\nREADY\n"))
 				continue
 			}
 
