@@ -1,0 +1,75 @@
+[Tue Feb  3 18:40:00 2026 UTC] [0simple.test] NOTE:check starts
+[Tue Feb  3 18:40:01 2026 UTC] [0simple.test] NOTE:checking whether simple usage works
+[Tue Feb  3 18:40:01 2026 UTC] [0simple.test] NOTE:connected to 71.62.235.16 port 2001
+[Tue Feb  3 18:40:01 2026 UTC] [0simple.test] NOTE:connected to 71.62.235.16 port 2001
+[Tue Feb  3 18:40:01 2026 UTC] [0simple.test] PASS
+[Tue Feb  3 18:40:02 2026 UTC] [1list.test] NOTE:check starts
+[Tue Feb  3 18:40:02 2026 UTC] [1list.test] NOTE:checking whether listing directories works
+[Tue Feb  3 18:40:02 2026 UTC] [1list.test] NOTE:connected to 71.62.235.16 port 2001
+[Tue Feb  3 18:40:03 2026 UTC] [1list.test] PASS
+[Tue Feb  3 18:40:04 2026 UTC] [2repo.test] NOTE:check starts
+[Tue Feb  3 18:40:04 2026 UTC] [2repo.test] NOTE:inserting repository for https://github.com/antirez/kilo
+[Tue Feb  3 18:40:04 2026 UTC] [2repo.test] NOTE:connected to 71.62.235.16 port 2001
+[Tue Feb  3 18:40:04 2026 UTC] [2repo.test] NOTE:inserting commit 1
+[Tue Feb  3 18:40:04 2026 UTC] [2repo.test] NOTE:inserting commit 2
+[Tue Feb  3 18:40:04 2026 UTC] [2repo.test] NOTE:inserting commit 3
+[Tue Feb  3 18:40:05 2026 UTC] [2repo.test] NOTE:inserting commit 4
+[Tue Feb  3 18:40:05 2026 UTC] [2repo.test] NOTE:inserting commit 5
+[Tue Feb  3 18:40:05 2026 UTC] [2repo.test] NOTE:inserting commit 6
+[Tue Feb  3 18:40:05 2026 UTC] [2repo.test] NOTE:inserting commit 7
+[Tue Feb  3 18:40:05 2026 UTC] [2repo.test] NOTE:inserting commit 8
+[Tue Feb  3 18:40:05 2026 UTC] [2repo.test] NOTE:inserting commit 9
+[Tue Feb  3 18:40:06 2026 UTC] [2repo.test] NOTE:inserting commit 10
+[Tue Feb  3 18:40:06 2026 UTC] [2repo.test] NOTE:inserting commit 11
+[Tue Feb  3 18:40:06 2026 UTC] [2repo.test] NOTE:inserting commit 12
+[Tue Feb  3 18:40:06 2026 UTC] [2repo.test] NOTE:inserting commit 13
+[Tue Feb  3 18:40:06 2026 UTC] [2repo.test] NOTE:inserting commit 14
+[Tue Feb  3 18:40:07 2026 UTC] [2repo.test] NOTE:inserting commit 15
+[Tue Feb  3 18:40:07 2026 UTC] [2repo.test] NOTE:inserting commit 16
+[Tue Feb  3 18:40:07 2026 UTC] [2repo.test] NOTE:inserting commit 17
+[Tue Feb  3 18:40:07 2026 UTC] [2repo.test] NOTE:inserting commit 18
+[Tue Feb  3 18:40:07 2026 UTC] [2repo.test] NOTE:inserting commit 19
+[Tue Feb  3 18:40:08 2026 UTC] [2repo.test] NOTE:checking /kilo.0001/kilo.c r1
+[Tue Feb  3 18:40:08 2026 UTC] [2repo.test] NOTE:checking /kilo.0001/README.md r1
+[Tue Feb  3 18:40:08 2026 UTC] [2repo.test] NOTE:checking /kilo.0001/README.md r4
+[Tue Feb  3 18:40:08 2026 UTC] [2repo.test] NOTE:checking /kilo.0001/kilo.c
+[Tue Feb  3 18:40:08 2026 UTC] [2repo.test] NOTE:checking /kilo.0001/TODO r1
+[Tue Feb  3 18:40:08 2026 UTC] [2repo.test] NOTE:checking /kilo.0001/TODO
+[Tue Feb  3 18:40:08 2026 UTC] [2repo.test] NOTE:checking /kilo.0001/kilo.c r11
+[Tue Feb  3 18:40:08 2026 UTC] [2repo.test] NOTE:checking /kilo.0001/kilo.c r12
+[Tue Feb  3 18:40:08 2026 UTC] [2repo.test] NOTE:checking /kilo.0001/kilo.c r5
+[Tue Feb  3 18:40:09 2026 UTC] [2repo.test] NOTE:checking /kilo.0001/LICENSE
+[Tue Feb  3 18:40:09 2026 UTC] [2repo.test] NOTE:checking /kilo.0001/LICENSE r1
+[Tue Feb  3 18:40:09 2026 UTC] [2repo.test] NOTE:checking /kilo.0001/kilo.c r3
+[Tue Feb  3 18:40:09 2026 UTC] [2repo.test] NOTE:checking /kilo.0001/kilo.c r2
+[Tue Feb  3 18:40:09 2026 UTC] [2repo.test] NOTE:checking /kilo.0001/kilo.c r7
+[Tue Feb  3 18:40:09 2026 UTC] [2repo.test] NOTE:checking /kilo.0001/kilo.c r4
+[Tue Feb  3 18:40:09 2026 UTC] [2repo.test] NOTE:checking /kilo.0001/kilo.c r8
+[Tue Feb  3 18:40:09 2026 UTC] [2repo.test] NOTE:checking /kilo.0001/kilo.c r10
+[Tue Feb  3 18:40:09 2026 UTC] [2repo.test] NOTE:checking /kilo.0001/README.md r3
+[Tue Feb  3 18:40:09 2026 UTC] [2repo.test] NOTE:checking /kilo.0001/kilo.c r13
+[Tue Feb  3 18:40:10 2026 UTC] [2repo.test] NOTE:checking /kilo.0001/kilo.c r9
+[Tue Feb  3 18:40:10 2026 UTC] [2repo.test] PASS
+[Tue Feb  3 18:40:11 2026 UTC] [3case.test] NOTE:check starts
+[Tue Feb  3 18:40:11 2026 UTC] [3case.test] NOTE:checking whether command names are case-insensitive
+[Tue Feb  3 18:40:11 2026 UTC] [3case.test] NOTE:connected to 71.62.235.16 port 2001
+[Tue Feb  3 18:40:12 2026 UTC] [3case.test] PASS
+[Tue Feb  3 18:40:13 2026 UTC] [4filenames.test] NOTE:check starts
+[Tue Feb  3 18:40:13 2026 UTC] [4filenames.test] NOTE:checking whether filename legality checks work correctly
+[Tue Feb  3 18:40:28 2026 UTC] [4filenames.test] PASS
+[Tue Feb  3 18:40:29 2026 UTC] [5binary.test] NOTE:check starts
+[Tue Feb  3 18:40:29 2026 UTC] [5binary.test] NOTE:checking whether server rejects binary data
+[Tue Feb  3 18:40:29 2026 UTC] [5binary.test] NOTE:connected to 71.62.235.16 port 2001
+[Tue Feb  3 18:40:29 2026 UTC] [5binary.test] PASS
+[Tue Feb  3 18:40:31 2026 UTC] [6errors.test] NOTE:check starts
+[Tue Feb  3 18:40:31 2026 UTC] [6errors.test] NOTE:checking whether error cases are handled correctly
+[Tue Feb  3 18:40:32 2026 UTC] [6errors.test] PASS
+[Tue Feb  3 18:40:33 2026 UTC] [7blocking.test] NOTE:check starts
+[Tue Feb  3 18:40:33 2026 UTC] [7blocking.test] NOTE:checking whether clients can block each other
+[Tue Feb  3 18:40:33 2026 UTC] [7blocking.test] NOTE:connected to 71.62.235.16 port 2001
+[Tue Feb  3 18:40:33 2026 UTC] [7blocking.test] NOTE:connected to 71.62.235.16 port 2001
+[Tue Feb  3 18:40:36 2026 UTC] [7blocking.test] PASS
+[Tue Feb  3 18:40:37 2026 UTC] [8help.test] NOTE:check starts
+[Tue Feb  3 18:40:37 2026 UTC] [8help.test] NOTE:checking whether HELP command works
+[Tue Feb  3 18:40:37 2026 UTC] [8help.test] NOTE:connected to 71.62.235.16 port 2001
+[Tue Feb  3 18:40:38 2026 UTC] [8help.test] PASS
