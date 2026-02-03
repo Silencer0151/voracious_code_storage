@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 	"unicode/utf8"
 )
 
@@ -66,16 +67,25 @@ func handleConnection(conn net.Conn) {
 	conn.Write([]byte("READY\n"))
 
 	for {
-		// 1. TEXT PHASE: Read the command line
+		// Set a deadline before reading.
+		// If the client doesn't send a command within 90 seconds, kick them.
+		conn.SetDeadline(time.Now().Add(90 * time.Second))
+
 		line, err := reader.ReadString('\n')
 		if err != nil {
+			// Quietly return on EOF (client disconnected)
 			if err != io.EOF {
-				log.Println("Read error:", err)
+				log.Printf("[%s] Connection closed: %v", conn.RemoteAddr(), err)
 			}
 			return
 		}
 
-		log.Printf("RECEIVED: %q", line)
+		// Reset deadline for the operation itself so we don't time out during a large upload
+		// possibly larger timeout for body rweading phase
+		conn.SetDeadline(time.Time{})
+
+		//DEBUG
+		//log.Printf("RECEIVED: %q", line)
 
 		// Trim whitespace and split command
 		line = strings.TrimSpace(line)
@@ -173,6 +183,7 @@ func handleConnection(conn net.Conn) {
 
 			// Send confirmation
 			response := fmt.Sprintf("OK r%d\nREADY\n", revID)
+			log.Printf("[%s] PUT %s (%d bytes) -> r%d", conn.RemoteAddr(), filename, length, revID)
 			conn.Write([]byte(response))
 
 		case "GET":
@@ -244,6 +255,7 @@ func handleConnection(conn net.Conn) {
 			storeMutex.RUnlock()
 
 			// Send Response
+			log.Printf("[%s] GET %s (rev %d) -> %d bytes", conn.RemoteAddr(), filename, targetIndex+1, len(fileData))
 			// 1. Header: OK <length>
 			header := fmt.Sprintf("OK %d\n", len(fileData))
 			conn.Write([]byte(header))
@@ -316,6 +328,7 @@ func handleConnection(conn net.Conn) {
 			sort.Strings(sortedNames)
 
 			// 5. Response
+			log.Printf("[%s] LIST %s", conn.RemoteAddr(), parts[1])
 			conn.Write([]byte(fmt.Sprintf("OK %d\n", len(sortedNames))))
 
 			for _, name := range sortedNames {
@@ -330,6 +343,7 @@ func handleConnection(conn net.Conn) {
 			conn.Write([]byte("OK usage: HELP|GET|PUT|LIST\nREADY\n"))
 
 		default:
+			log.Printf("[%s] Invalid Command: %s", conn.RemoteAddr(), cmd)
 			conn.Write([]byte("ERR illegal method: " + cmd + "\nREADY\n"))
 		}
 	}
