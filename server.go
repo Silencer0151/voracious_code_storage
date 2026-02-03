@@ -340,6 +340,7 @@ func handleConnection(conn net.Conn) {
 			conn.Write([]byte("READY\n"))
 
 		case "HELP":
+			log.Printf("[%s] -> [%s]", conn.RemoteAddr(), cmd)
 			conn.Write([]byte("OK usage: HELP|GET|PUT|LIST\nREADY\n"))
 
 		default:
