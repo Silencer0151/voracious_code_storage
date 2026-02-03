@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -18,7 +19,9 @@ import (
 // Global storage for the VCS (Problem requires shared storage, not temp per session)
 // Map: Filename -> Slice of Revisions (each revision is []byte)
 var (
-	fileStore  = make(map[string][][]byte)
+	fileStore = make(map[string][][]byte)
+	// Allow only: a-z, A-Z, 0-9, forward slash (/), dot (.), underscore (_), hyphen (-)
+	validPath  = regexp.MustCompile(`^[a-zA-Z0-9/._-]+$`)
 	storeMutex sync.RWMutex
 )
 
@@ -93,6 +96,19 @@ func handleConnection(conn net.Conn) {
 			}
 
 			filename := parts[1]
+
+			// Rule 1: Must be absolute path (start with /)
+			if !strings.HasPrefix(filename, "/") {
+				conn.Write([]byte("ERR illegal file name\nREADY\n"))
+				continue
+			}
+
+			// Rule 2: Must match allowed characters
+			if !validPath.MatchString(filename) {
+				conn.Write([]byte("ERR illegal file name\nREADY\n"))
+				continue
+			}
+
 			storeKey := strings.ToLower(filename)
 			length, err := strconv.Atoi(parts[2])
 			if err != nil {
