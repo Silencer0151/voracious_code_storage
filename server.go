@@ -237,58 +237,66 @@ func handleConnection(conn net.Conn) {
 		case "LIST":
 			// Request: LIST <dir>
 			if len(parts) != 2 {
-				// Optional: Be nice and default to "/" if no arg is provided,
-				// though strict protocol says usage error.
 				conn.Write([]byte("ERR usage: LIST dir\nREADY\n"))
 				continue
 			}
-			targetDir := strings.ToLower(parts[1]) // e.g., "/" or "/KILO.0001"
+
+			// Normalize target: lowercase, and ensure it ends with "/"
+			// This makes the prefix stripping logic much safer.
+			targetDir := strings.ToLower(parts[1])
+			if !strings.HasSuffix(targetDir, "/") {
+				targetDir += "/"
+			}
 
 			storeMutex.RLock()
-			var validLines []string
 
-			// Prepare lowercase target for case-insensitive matching
-			//lowerTarget := strings.ToLower(targetDir)
+			// Use a map to deduplicate directory entries
+			// Key = Display Name (e.g. "folder/"), Value = Metadata (e.g. "DIR" or "r1")
+			entries := make(map[string]string)
 
 			for path, revisions := range fileStore {
-				lowerPath := strings.ToLower(path)
-				// 1. Filter: Case-Insensitive Prefix Check
-				// We compare lowercase versions, but we return the ORIGINAL path casing
-				if strings.HasPrefix(lowerPath, targetDir) {
+				// path is already lowercase because we stored it that way
 
-					// 2. Format: Strip the directory prefix for display
-					// We must strip the *original* casing from the path to preserve the file name casing
-					// But standard TrimPrefix works on exact matches.
-					// For case-insensitive trim, we rely on the length of the target.
+				// 1. Check if file is inside this directory
+				if strings.HasPrefix(path, targetDir) {
 
-					// e.g. path="/kilo.0001/file", target="/KILO.0001" -> name="/file"
-					// We know it matches via HasPrefix, so we can just slice the string.
-					name := path[len(targetDir):]
+					// 2. Get the relative path
+					// e.g. target="/", path="/dir/file.txt" -> relative="dir/file.txt"
+					relative := strings.TrimPrefix(path, targetDir)
 
-					// Handle edge case: if targetDir didn't have a trailing slash,
-					// we might be left with "/file". Strip it.
-					name = strings.TrimPrefix(name, "/")
+					// 3. Check for subdirectories
+					if idx := strings.Index(relative, "/"); idx != -1 {
+						// It is in a subdir!
+						// relative="dir/file.txt" -> dirName="dir"
+						dirName := relative[:idx]
 
-					// 3. Get Revision
-					latestRev := len(revisions)
-
-					// Add to buffer
-					line := fmt.Sprintf("%s r%d", name, latestRev)
-					validLines = append(validLines, line)
+						// Add the slash to match the probe output "probe_folder/"
+						entries[dirName+"/"] = "DIR"
+					} else {
+						// It is a direct file in this directory
+						// relative="file.txt"
+						rev := len(revisions)
+						entries[relative] = fmt.Sprintf("r%d", rev)
+					}
 				}
 			}
 			storeMutex.RUnlock()
 
-			// 4. SORTING
-			sort.Strings(validLines)
-
-			// Log for debugging
-			log.Printf("LIST %s returned %d items", targetDir, len(validLines))
+			// 4. Sort the keys (Critical for tests)
+			var sortedNames []string
+			for name := range entries {
+				sortedNames = append(sortedNames, name)
+			}
+			sort.Strings(sortedNames)
 
 			// 5. Response
-			conn.Write([]byte(fmt.Sprintf("OK %d\n", len(validLines))))
-			for _, l := range validLines {
-				conn.Write([]byte(l + "\n"))
+			conn.Write([]byte(fmt.Sprintf("OK %d\n", len(sortedNames))))
+
+			for _, name := range sortedNames {
+				meta := entries[name]
+				// Format: "name metadata"
+				// e.g. "folder/ DIR" or "file.txt r1"
+				conn.Write([]byte(fmt.Sprintf("%s %s\n", name, meta)))
 			}
 			conn.Write([]byte("READY\n"))
 
