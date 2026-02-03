@@ -1,0 +1,79 @@
+ derrybm@Pure-Vessel-TCGBNF:~$ printf 'PUT /me.txt 5\nHELLOPUT /me.txt 5\nWORLDGET /me.txt\nGET /me.txt r1\n' | nc vcs.protohackers.com 30307
+READY
+OK r1
+READY
+OK r2
+READY
+OK 5
+WORLDREADY
+OK 5
+HELLOREADY 
+
+
+Here is the Formal Specification you need to implement Voracious Code Storage.
+1. The Protocol Format
+
+    Encoding: ASCII for commands, Binary for file content.
+
+    Line Endings: Commands and Responses are terminated by \n.
+
+    Prompt: The server sends READY\n when it is waiting for a command.
+
+2. Commands
+PUT (Upload)
+
+Saves a file and creates a new revision.
+
+    Client Sends: PUT <filename> <length>\n
+
+    Client Sends: <raw_bytes> (Exactly <length> bytes. No trailing newline).
+
+    Server Responds: OK <revision_id>\n followed by READY\n.
+
+        Note: Revisions start at r1 and increment r2, r3, etc.
+
+GET (Download)
+
+Retrieves a specific revision or the latest version.
+
+    Client Sends: GET <filename> [revision_id]\n
+
+    Server Responds: OK <length>\n
+
+    Server Sends: <raw_bytes> (Exactly <length> bytes).
+
+    Server Sends: READY\n (Immediately after the bytes).
+
+LIST (Directory)
+
+Lists files in a directory.
+
+    Client Sends: LIST <directory>\n
+
+    Server Responds: OK <entry_count>\n
+
+    Server Sends: <entry_line>\n (Repeated for each file).
+
+        Format: <filename> <current_revision_id>
+
+    Server Sends: READY\n
+
+HELP
+
+    Client Sends: HELP\n
+
+    Server Responds: OK usage: HELP|GET|PUT|LIST\n followed by READY\n.
+
+Critical Implementation Details (The "Gotchas")
+
+1. The "Delimiter" Trap When implementing the GET command in your server, do not add a newline after the file data.
+
+    Correct: socket.write(data); socket.write("READY\n");
+
+    Incorrect: socket.write(data + "\n");
+
+2. Filename Validation Your printf errors proved that filenames must be absolute paths (start with /) and contain valid characters. Using a regex like ^[a-zA-Z0-9/._-]+$ is probably a safe bet to prevent path traversal attacks.
+
+3. Concurrency The problem description states: "each session gets its own private temporary storage... Your server must not have these limitations."
+
+    You need a global data structure (like a ConcurrentHashMap or a database) to store files so that if Client A uploads test.txt, Client B can immediately GET it.

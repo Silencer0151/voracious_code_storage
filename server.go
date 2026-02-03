@@ -1,0 +1,302 @@
+package main
+
+import (
+	"bufio"
+	"bytes"
+	"flag"
+	"fmt"
+	"io"
+	"log"
+	"net"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"unicode/utf8"
+)
+
+// Global storage for the VCS (Problem requires shared storage, not temp per session)
+// Map: Filename -> Slice of Revisions (each revision is []byte)
+var (
+	fileStore  = make(map[string][][]byte)
+	storeMutex sync.RWMutex
+)
+
+func main() {
+	// Idiomatic Go argument parsing
+	hostname := flag.String("h", "0.0.0.0", "Hostname to bind")
+	port := flag.String("p", "2001", "Port to bind")
+	flag.Parse()
+
+	addr := fmt.Sprintf("%s:%s", *hostname, *port)
+	fmt.Printf("Starting VCS Server on %s...\n", addr)
+
+	runServer(addr)
+}
+
+func runServer(addr string) {
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer listener.Close()
+
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			log.Println("Connection error:", err)
+			continue
+		}
+		// Handle each connection in a new goroutine
+		go handleConnection(conn)
+	}
+}
+
+func handleConnection(conn net.Conn) {
+	defer conn.Close()
+
+	// WRAPPER: This is the key. We wrap the connection in a Reader.
+	// We read both lines and raw bytes from this SAME reader.
+	reader := bufio.NewReader(conn)
+
+	// Send initial greeting
+	conn.Write([]byte("READY\n"))
+
+	for {
+		// 1. TEXT PHASE: Read the command line
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			if err != io.EOF {
+				log.Println("Read error:", err)
+			}
+			return
+		}
+
+		log.Printf("RECEIVED: %q", line)
+
+		// Trim whitespace and split command
+		line = strings.TrimSpace(line)
+		parts := strings.Fields(line)
+
+		if len(parts) == 0 {
+			continue // Handle empty lines gracefully if needed
+		}
+
+		cmd := strings.ToUpper(parts[0])
+
+		switch cmd {
+		case "PUT":
+			// PUT /file.txt 123
+			if len(parts) != 3 {
+				conn.Write([]byte("ERR usage: PUT file length\nREADY\n"))
+				continue
+			}
+
+			filename := parts[1]
+			storeKey := strings.ToLower(filename)
+			length, err := strconv.Atoi(parts[2])
+			if err != nil {
+				conn.Write([]byte("ERR invalid length\nREADY\n"))
+				continue
+			}
+
+			fileData := make([]byte, length)
+			_, err = io.ReadFull(reader, fileData)
+			if err != nil {
+				log.Println("Error reading file body:", err)
+				return
+			}
+
+			// Check 1: Is it valid UTF-8?
+			if !utf8.Valid(fileData) {
+				conn.Write([]byte("ERR text files only\nREADY\n"))
+				continue
+			}
+
+			// Check 2: Does it contain non-printable control characters? (Optional but likely required)
+			// We allow \n (10), \r (13), \t (9). We disallow NULL (0) or other controls.
+			isText := true
+			for _, b := range fileData {
+				if b < 32 && b != 10 && b != 13 && b != 9 {
+					isText = false
+					break
+				}
+				// Also reject the Delete char (127) if you want to be strict
+				if b == 127 {
+					isText = false
+					break
+				}
+			}
+
+			if !isText {
+				conn.Write([]byte("ERR text files only\nREADY\n"))
+				continue
+			}
+
+			// Store the file (Thread-safe)
+			storeMutex.Lock()
+
+			// Get existing revisions for this file
+			currentRevisions := fileStore[storeKey]
+			var revID int
+
+			// CHECK FOR DUPLICATE CONTENT
+			// If the file exists and the new data matches the last revision...
+			if len(currentRevisions) > 0 && bytes.Equal(currentRevisions[len(currentRevisions)-1], fileData) {
+				// ... we do NOT create a new revision.
+				revID = len(currentRevisions)
+				log.Printf("Skipping duplicate revision for %s (keeping r%d)\n", filename, revID)
+			} else {
+				// Otherwise, append as a new revision
+				fileStore[storeKey] = append(fileStore[storeKey], fileData)
+				revID = len(fileStore[storeKey])
+				log.Printf("Stored new revision for %s (r%d)\n", filename, revID)
+			}
+
+			storeMutex.Unlock()
+
+			// Send confirmation
+			response := fmt.Sprintf("OK r%d\nREADY\n", revID)
+			conn.Write([]byte(response))
+
+		case "GET":
+			// GET /file.txt [r#]
+			if len(parts) < 2 {
+				conn.Write([]byte("ERR usage: GET file [revision]\nREADY\n"))
+				continue
+			}
+
+			filename := parts[1]
+			storeKey := strings.ToLower(filename)
+
+			// Read-Lock the storage to find the file
+			storeMutex.RLock()
+			revisions, exists := fileStore[storeKey]
+
+			// Case: File does not exist
+			if !exists {
+				storeMutex.RUnlock()
+				conn.Write([]byte("ERR no such file\nREADY\n"))
+				continue
+			}
+
+			// Determine which revision index to fetch
+			var targetIndex int
+
+			if len(parts) >= 3 {
+				// User requested specific revision (e.g., "r1")
+				revString := parts[2]
+
+				// Validate format (must start with 'r')
+				if !strings.HasPrefix(strings.ToLower(revString), "r") {
+					storeMutex.RUnlock()
+					conn.Write([]byte("ERR no such revision\nREADY\n"))
+					continue
+				}
+
+				// Parse the number
+				revNum, err := strconv.Atoi(revString[1:]) // strip 'r'
+				if err != nil {
+					storeMutex.RUnlock()
+					conn.Write([]byte("ERR no such revision\nREADY\n"))
+					continue
+				}
+
+				// Convert 1-based revision ID to 0-based slice index
+				targetIndex = revNum - 1
+			} else {
+				// Default: Get the latest revision (last item in slice)
+				targetIndex = len(revisions) - 1
+			}
+
+			// Bounds Check
+			if targetIndex < 0 || targetIndex >= len(revisions) {
+				storeMutex.RUnlock()
+				conn.Write([]byte("ERR no such revision\nREADY\n"))
+				continue
+			}
+
+			// Get the data reference
+			fileData := revisions[targetIndex]
+
+			// We can unlock now because we have the reference to the byte slice
+			// (Assuming existing revisions are never modified/deleted in this VCS)
+			storeMutex.RUnlock()
+
+			// Send Response
+			// 1. Header: OK <length>
+			header := fmt.Sprintf("OK %d\n", len(fileData))
+			conn.Write([]byte(header))
+
+			// 2. Body: Raw bytes (No newline after!)
+			conn.Write(fileData)
+
+			// 3. Footer: READY
+			conn.Write([]byte("READY\n"))
+
+		case "LIST":
+			// Request: LIST <dir>
+			if len(parts) != 2 {
+				// Optional: Be nice and default to "/" if no arg is provided,
+				// though strict protocol says usage error.
+				conn.Write([]byte("ERR usage: LIST dir\nREADY\n"))
+				continue
+			}
+			targetDir := strings.ToLower(parts[1]) // e.g., "/" or "/KILO.0001"
+
+			storeMutex.RLock()
+			var validLines []string
+
+			// Prepare lowercase target for case-insensitive matching
+			//lowerTarget := strings.ToLower(targetDir)
+
+			for path, revisions := range fileStore {
+				lowerPath := strings.ToLower(path)
+				// 1. Filter: Case-Insensitive Prefix Check
+				// We compare lowercase versions, but we return the ORIGINAL path casing
+				if strings.HasPrefix(lowerPath, targetDir) {
+
+					// 2. Format: Strip the directory prefix for display
+					// We must strip the *original* casing from the path to preserve the file name casing
+					// But standard TrimPrefix works on exact matches.
+					// For case-insensitive trim, we rely on the length of the target.
+
+					// e.g. path="/kilo.0001/file", target="/KILO.0001" -> name="/file"
+					// We know it matches via HasPrefix, so we can just slice the string.
+					name := path[len(targetDir):]
+
+					// Handle edge case: if targetDir didn't have a trailing slash,
+					// we might be left with "/file". Strip it.
+					name = strings.TrimPrefix(name, "/")
+
+					// 3. Get Revision
+					latestRev := len(revisions)
+
+					// Add to buffer
+					line := fmt.Sprintf("%s r%d", name, latestRev)
+					validLines = append(validLines, line)
+				}
+			}
+			storeMutex.RUnlock()
+
+			// 4. SORTING
+			sort.Strings(validLines)
+
+			// Log for debugging
+			log.Printf("LIST %s returned %d items", targetDir, len(validLines))
+
+			// 5. Response
+			conn.Write([]byte(fmt.Sprintf("OK %d\n", len(validLines))))
+			for _, l := range validLines {
+				conn.Write([]byte(l + "\n"))
+			}
+			conn.Write([]byte("READY\n"))
+
+		case "HELP":
+			conn.Write([]byte("OK usage: HELP|GET|PUT|LIST\nREADY\n"))
+
+		default:
+			conn.Write([]byte("ERR illegal method: " + cmd + "\nREADY\n"))
+		}
+	}
+}
