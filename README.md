@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-Implemented a thread-safe, persistent Version Control System (VCS) server in Go. The protocol was reverse-engineered from a "black box" reference server using manual probing (netcat) and automated fuzzing. The final server supports concurrent clients, handles mixed text/binary payloads, and mimics a hierarchical file system.
+Implemented a thread-safe, persistent Version Control System (VCS) server in Go. The protocol was reverse-engineered from a "black box" reference server using manual probing (netcat) and automated fuzzing. The final server supports concurrent clients, handles mixed text/binary payloads, and mimics a hierarchical file system. FROM: https://protohackers.com/problem/10
 
 ## 2. Key Learnings & Challenges
 
